@@ -5,7 +5,7 @@ import { Badge } from './components/ui/badge'
 import { Progress } from './components/ui/progress'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Separator } from './components/ui/separator'
-import { Upload, Recycle, Trash2, Trophy, Zap, Target, Camera, Sparkles, Video, VideoOff, RotateCcw } from 'lucide-react'
+import { Recycle, Trash2, Trophy, Zap, Target, Camera, Sparkles, Video, VideoOff, RotateCcw } from 'lucide-react'
 import { blink } from './blink/client'
 
 interface GameStats {
@@ -34,8 +34,6 @@ interface Achievement {
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [userAnswer, setUserAnswer] = useState<'recycle' | 'trash' | null>(null)
@@ -87,39 +85,6 @@ function App() {
       unlocked: false
     }
   ])
-
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string)
-        setAnalysisResult(null)
-        setShowResult(false)
-        setUserAnswer(null)
-      }
-      reader.readAsDataURL(file)
-    }
-  }, [])
-
-  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const file = event.dataTransfer.files[0]
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string)
-        setAnalysisResult(null)
-        setShowResult(false)
-        setUserAnswer(null)
-      }
-      reader.readAsDataURL(file)
-    }
-  }, [])
-
-  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-  }, [])
 
   // Camera functions
   const startCamera = async () => {
@@ -258,30 +223,6 @@ Consider:
     }
   }
 
-  const analyzeImage = async () => {
-    if (!uploadedImage) return
-
-    setIsAnalyzing(true)
-    
-    try {
-      // Upload the image to get an HTTPS URL
-      const imageUrl = await uploadImageToStorage(uploadedImage)
-      console.log('Image uploaded successfully, analyzing with URL:', imageUrl)
-      const result = await analyzeImageFromUrl(imageUrl)
-      setAnalysisResult(result)
-    } catch (error) {
-      console.error('Image analysis failed:', error)
-      setAnalysisResult({
-        classification: 'trash',
-        confidence: 75,
-        explanation: 'Unable to analyze this image. Please try uploading a different image.',
-        tips: ['Try taking a clearer photo', 'Ensure good lighting', 'Make sure the object is clearly visible', 'Check your internet connection']
-      })
-    }
-    
-    setIsAnalyzing(false)
-  }
-
   const startStreamingAnalysis = () => {
     setIsStreamingAnalysis(true)
     setAnalysisResult(null)
@@ -340,7 +281,6 @@ Consider:
   }
 
   const resetGame = () => {
-    setUploadedImage(null)
     setAnalysisResult(null)
     setShowResult(false)
     setUserAnswer(null)
@@ -410,7 +350,7 @@ Consider:
               </h1>
             </div>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Test your waste sorting skills! Upload an image or use your camera for real-time analysis to learn proper waste sorting.
+              Test your waste sorting skills! Use your camera for real-time analysis to learn proper waste sorting.
             </p>
           </div>
           
@@ -463,57 +403,59 @@ Consider:
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Game Area */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Image Upload & Camera */}
+            {/* Camera Analysis */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Camera className="w-5 h-5" />
-                    Waste Analysis
+                    Live Camera Analysis
                   </CardTitle>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => {
-                        if (isCameraMode) {
-                          stopCamera()
-                        } else {
-                          resetGame()
-                        }
-                      }}
-                      variant={isCameraMode ? "default" : "outline"}
-                      size="sm"
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (!isCameraMode) {
-                          startCamera()
-                        } else {
-                          stopCamera()
-                        }
-                      }}
-                      variant={isCameraMode ? "default" : "outline"}
-                      size="sm"
-                    >
-                      {isCameraMode ? (
-                        <>
-                          <VideoOff className="w-4 h-4 mr-2" />
-                          Stop
-                        </>
-                      ) : (
-                        <>
-                          <Video className="w-4 h-4 mr-2" />
-                          Camera
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => {
+                      if (isCameraMode) {
+                        stopCamera()
+                      } else {
+                        startCamera()
+                      }
+                    }}
+                    variant={isCameraMode ? "destructive" : "default"}
+                    size="sm"
+                  >
+                    {isCameraMode ? (
+                      <>
+                        <VideoOff className="w-4 h-4 mr-2" />
+                        Stop Camera
+                      </>
+                    ) : (
+                      <>
+                        <Video className="w-4 h-4 mr-2" />
+                        Start Camera
+                      </>
+                    )}
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {isCameraMode ? (
+                {!isCameraMode ? (
+                  <div className="text-center py-12">
+                    <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                      Ready to Start Sorting?
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Click "Start Camera" to begin real-time waste sorting analysis
+                    </p>
+                    <Button
+                      onClick={startCamera}
+                      className="bg-green-600 hover:bg-green-700"
+                      size="lg"
+                    >
+                      <Video className="w-5 h-5 mr-2" />
+                      Start Camera
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     <div className="relative">
                       <video
@@ -607,98 +549,9 @@ Consider:
                       </p>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    {!uploadedImage ? (
-                      <div
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-green-400 transition-colors cursor-pointer"
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onClick={() => document.getElementById('file-input')?.click()}
-                      >
-                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-lg font-medium text-gray-600 mb-2">
-                          Drop an image here or click to upload
-                        </p>
-                        <p className="text-sm text-gray-500 mb-4">
-                          PNG, JPG, GIF up to 10MB
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Or switch to camera mode for real-time analysis
-                        </p>
-                        <input
-                          id="file-input"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="relative">
-                          <img
-                            src={uploadedImage}
-                            alt="Uploaded item"
-                            className="w-full max-w-md mx-auto rounded-lg shadow-lg"
-                          />
-                        </div>
-                        
-                        {!analysisResult && (
-                          <div className="text-center">
-                            <Button
-                              onClick={analyzeImage}
-                              disabled={isAnalyzing}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              {isAnalyzing ? (
-                                <>
-                                  <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                                  Analyzing...
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-4 h-4 mr-2" />
-                                  Analyze with AI
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-
-                        {analysisResult && !showResult && (
-                          <div className="space-y-4">
-                            <div className="text-center">
-                              <p className="text-lg font-medium mb-4">
-                                Where should this item go?
-                              </p>
-                              <div className="flex gap-4 justify-center">
-                                <Button
-                                  onClick={() => handleUserAnswer('recycle')}
-                                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
-                                  size="lg"
-                                >
-                                  <Recycle className="w-5 h-5" />
-                                  Recycle
-                                </Button>
-                                <Button
-                                  onClick={() => handleUserAnswer('trash')}
-                                  className="bg-gray-600 hover:bg-gray-700 flex items-center gap-2"
-                                  size="lg"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                  Trash
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
                 )}
                 
-                {/* Results section - shown for both modes */}
+                {/* Results section */}
                 {showResult && analysisResult && (
                   <div className="space-y-4 mt-6">
                     <Alert className={userAnswer === analysisResult.classification ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
