@@ -173,21 +173,36 @@ function App() {
   }
 
   const uploadImageToStorage = async (dataUrl: string): Promise<string> => {
-    // Convert data URL to blob
-    const response = await fetch(dataUrl)
-    const blob = await response.blob()
-    
-    // Create a file from the blob
-    const file = new File([blob], `waste-item-${Date.now()}.jpg`, { type: 'image/jpeg' })
-    
-    // Upload to Blink storage
-    const { publicUrl } = await blink.storage.upload(file, `waste-analysis/${Date.now()}.jpg`, { upsert: true })
-    
-    return publicUrl
+    try {
+      // Convert data URL to blob
+      const response = await fetch(dataUrl)
+      const blob = await response.blob()
+      
+      // Create a file from the blob
+      const file = new File([blob], `waste-item-${Date.now()}.jpg`, { type: 'image/jpeg' })
+      
+      // Upload to Blink storage
+      const { publicUrl } = await blink.storage.upload(file, `waste-analysis/${Date.now()}.jpg`, { upsert: true })
+      
+      // Validate that we got an HTTPS URL
+      if (!publicUrl || !publicUrl.startsWith('https://')) {
+        throw new Error(`Invalid storage URL: ${publicUrl}`)
+      }
+      
+      return publicUrl
+    } catch (error) {
+      console.error('Failed to upload image to storage:', error)
+      throw new Error('Failed to upload image for analysis')
+    }
   }
 
   const analyzeImageFromUrl = async (imageUrl: string): Promise<AnalysisResult> => {
     try {
+      // Validate that the image URL is HTTPS
+      if (!imageUrl || !imageUrl.startsWith('https://')) {
+        throw new Error(`Invalid image URL for AI analysis: ${imageUrl}. Must be HTTPS.`)
+      }
+      
       // Use Blink AI to analyze the image
       const { text } = await blink.ai.generateText({
         messages: [
@@ -251,6 +266,7 @@ Consider:
     try {
       // Upload the image to get an HTTPS URL
       const imageUrl = await uploadImageToStorage(uploadedImage)
+      console.log('Image uploaded successfully, analyzing with URL:', imageUrl)
       const result = await analyzeImageFromUrl(imageUrl)
       setAnalysisResult(result)
     } catch (error) {
@@ -258,8 +274,8 @@ Consider:
       setAnalysisResult({
         classification: 'trash',
         confidence: 75,
-        explanation: 'Unable to analyze this image. Please try again.',
-        tips: ['Try taking a clearer photo', 'Ensure good lighting', 'Make sure the object is clearly visible']
+        explanation: 'Unable to analyze this image. Please try uploading a different image.',
+        tips: ['Try taking a clearer photo', 'Ensure good lighting', 'Make sure the object is clearly visible', 'Check your internet connection']
       })
     }
     
@@ -287,6 +303,13 @@ Consider:
         setAnalysisResult(result)
       } catch (error) {
         console.error('Streaming analysis failed:', error)
+        // Set a fallback result to prevent UI from being stuck
+        setAnalysisResult({
+          classification: 'trash',
+          confidence: 75,
+          explanation: 'Unable to analyze this frame. Please try adjusting the camera angle or lighting.',
+          tips: ['Ensure good lighting', 'Hold the camera steady', 'Make sure the object is clearly visible']
+        })
       }
     }, 500) // Check every 500ms, but throttled to 2s
   }
